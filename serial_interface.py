@@ -3,20 +3,12 @@
 Created on Thu Mar  5 11:05:04 2020
 
 @author:    Kevin Reed Williamson
-            <kevinreedwilliamson@gmail.com>
+            kevin.williamson@nist.gov
+            National Inst. of Standards and Tech.
+            Bldg 222 Room A145
 
-Class object to initiate communication and control 
-TEC Controller 3510 from Arroyo Instruments, Inc.
-
-Example:
-    # With the serial_interface.py file in the same directory as  
-    In [1]: pwd
-    Out[1]: '\\Users\\krwil'
-    
-    In [2]: from serial_interface import arroyo5310
-    
-    In [3]: TEC_controller = arroyo5310()
-    Out[3]: 
+Code to initiate communication and control TEC Controller 3510 from Arroyo 
+Instruments, Inc.
 
 """
 
@@ -39,22 +31,28 @@ class arroyo5310(object):
         ports = list(port_list.comports())
         for p in ports:
             print (p)
-        # Choosing COM port from list of available connections 
-        self.port = ports[2].device
-        # Setting up and connecting to device
-        self.ser = serial.Serial(port =     'COM4',
-                                 baudrate = 38400,
-                                 parity =   serial.PARITY_NONE,
-                                 stopbits = serial.STOPBITS_ONE,
-                                 bytesize = serial.EIGHTBITS,
-                                 timeout =  0,
-                                 write_timeout = 0)
-        if self.ser.is_open:
-            print("\n" + self.port + " has been opened.\n")
-            self.ser.write(b'*IDN? \r\n')
-            sleep(0.05)
-            print(bytes.decode(self.ser.read(256)))
-        return
+            # Choosing COM port from list of available connections 
+            if "USB Serial Port" in p[1]:
+                try:
+                    self.port = p[0]
+                    # Setting up and connecting to device
+                    self.ser = serial.Serial(port =     self.port,
+                                             baudrate = 38400,
+                                             parity =   serial.PARITY_NONE,
+                                             stopbits = serial.STOPBITS_ONE,
+                                             bytesize = serial.EIGHTBITS,
+                                             timeout =  0,
+                                             write_timeout = 0)
+                    if self.ser.is_open:
+                        print("\n" + self.port + " has been opened.\n")
+                        self.ser.write(b'*IDN? \r\n')
+                        sleep(0.1)
+                        print(bytes.decode(self.ser.read(256)))
+                    else:
+                        print("\nDid not connect to " + self.port + "\n")
+                    return
+                except:
+                    print("Failed to connect to " + p[0])
 
 
     def write_command(self,command):
@@ -151,7 +149,8 @@ class arroyo5310(object):
         sleep(0.1)
         print("     New tolerances:    " + str(self.read_tolerance()))
         return
-    
+
+
     def run_time(self):
         """ Returns time that unit has been running """
         time = self.write_command("TIME? ")
@@ -290,15 +289,46 @@ class arroyo5310(object):
     def read_fan(self):
         """ Queries the controller for the status of the fan output
             speed returns str type OFF, SLOW, MEDIUM, FAST, or 4.0 to 12.0 in V
-            mode returns int type 1, 2, or 3 
-            delay returns int type 1 to 240 in minutes"""
-            
-        speed = 1
-        mode  = 1
-        delay = 1
+            mode returns int type 1, 2, or 3 (2 is always on)
+            delay returns int type 1 to 240 in minutes """
+        response = self.write_command("TEC:FAN? ")
+        response = response.split(",")
+        speed = response[0]
+        mode = int(response[1])
+        delay = int(response[2])
         return(speed, mode, delay)
 
  
-    def set_fan(self, speed, mode, delay):
+    def set_fan(self, speed, mode, delay = None):
+        """ Sets controller fan settings by taking 3 arguments 
+            speed takes str value OFF, SLOW, MEDIUM, FAST, or 4.0 to 12.0 in V
+            mode takes int type 1, 2, or 3 (2 is always on)
+            delay takes int type 1 to 240 in minutes 
+            recomend: arroyo.set_fan(12,2) """
+        if not delay:
+            self.write_command("TEC:FAN " + 
+                               str(speed) + "," + 
+                               str(mode))
+        else:
+            self.write_command("TEC:FAN " + 
+                               str(speed) + "," + 
+                               str(mode) + "," +
+                               str(delay))
+        sleep(0.1)
+        speed_new, mode_new, delay_new = self.read_fan()
         
+        
+        if float(speed) == float(speed_new):
+            print("Updated fan speed to: " + str(speed))
+        else:
+            print("Failed to update fan speed!")
+        if int(mode) == mode_new:
+            print("Updated fan mode to: " + str(mode))
+        else:
+            print("Failed to update fan mode!")
+        if delay:
+            if int(delay) == delay_new:
+                print("Updated fan delay to: " + str(delay))
+            else:
+                print("Failed to update fan delay!")
         return()
