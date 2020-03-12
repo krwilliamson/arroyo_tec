@@ -3,7 +3,7 @@
 Created on Mon Mar  9 11:42:46 2020
 
 @author:    Kevin Reed Williamson
-            <kevin.williamson@nist.gov>
+            <kevin.williamson@gamil.com>
             
 Example settings script for TEC Controller 5310 from Arroyo Instruments, Inc.
 """
