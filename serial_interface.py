@@ -3,9 +3,7 @@
 Created on Thu Mar  5 11:05:04 2020
 
 @author:    Kevin Reed Williamson
-            kevin.williamson@nist.gov
-            National Inst. of Standards and Tech.
-            Bldg 222 Room A145
+            kevin.williamson@gmail.com
 
 Code to initiate communication and control TEC Controller 3510 from Arroyo 
 Instruments, Inc.
