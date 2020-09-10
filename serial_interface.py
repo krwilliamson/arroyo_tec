@@ -5,9 +5,6 @@ Editted on Thu Sep 10 2020
 
 @author:    K. R. Williamson
             kevin.williamson@nist.gov
-            National Inst. of Standards and Tech.
-            Bldg 222 Room A145
-
 
 # Arroyo TEC Controllers API #
 ## Description ##
