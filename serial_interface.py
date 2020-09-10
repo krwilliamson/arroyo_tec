@@ -1,13 +1,71 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Mar  5 11:05:04 2020
+Created on Thu Mar  5 2020
+Editted on Thu Sep 10 2020
 
-@author:    Kevin Reed Williamson
-            kevin.williamson@gmail.com
+@author:    K. R. Williamson
+            kevin.williamson@nist.gov
+            National Inst. of Standards and Tech.
+            Bldg 222 Room A145
 
-Code to initiate communication and control TEC Controller 3510 from Arroyo 
-Instruments, Inc.
 
+# Arroyo TEC Controllers API #
+## Description ##
+Importable class object for serial communication and control of TEC 
+Controllers from Arroyo Instruments, Inc.
+
+## License ##
+Permission is hereby granted, free of charge, to any person obtaining a copy 
+of this software and associated documentation files (the "Software"), to deal 
+in the Software without restriction, including without limitation the rights 
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+copies of the Software, and to permit persons to whom the Software is 
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+SOFTWARE.
+
+## Purpose ##
+This project allows users with Windows 10 to interact with their Arroyo 
+Instruments TEC Controllers. This API allows users to read settings, features, 
+and update them with python code.
+
+The library is composed of:
+* A python API to communicate with a RS232 or a USB port via a serial 
+    interface.
+* An example script initiating communication, choosing device settings, and 
+    recording/plotting live data. 
+
+## Testing ## 
+This program has only been tested with Windows 10 and the units listed below. 
+This code could be adapted for laser diode controllers supplied by Arroyo 
+Instruments. Users with a different operating system, should adjust the 
+__init__ function for their circumstances. For example, Linux systems use a 
+different syntax for connected devices and require adjustments to the 
+__init__ coding.
+
+Tested on the following models:
+    3510 TEC Source
+    585-05-12 TECPak
+    586-08-26 TECPak
+
+## Dependencies ##
+This program was developed with following python package versions.
+* numpy
+* time
+* python            3.7.7
+* pyserial          3.4
+* vs2015_runtime    14.16.27012      
+* dpython-dateutil  2.8.1
+* matplotlib        3.1.3
 """
 
 import serial
@@ -17,8 +75,8 @@ from time import sleep
 
 
 
-class arroyo5310(object):
-    """ Class to control Arroyo Instrument's TEC Controller 6310 """
+class arroyo(object):
+    """ Class to control Arroyo Instrument's TEC Sources """
 
 
     def __init__(self):
@@ -27,9 +85,10 @@ class arroyo5310(object):
         """
         # Listing all available COM ports on windows computer
         ports = list(port_list.comports())
+        options = []
+        option = 1
         for p in ports:
-            print (p)
-            # Choosing COM port from list of available connections 
+            # Lists all available devices by Arroyo Instruments
             if "USB Serial Port" in p[1]:
                 try:
                     self.port = p[0]
@@ -42,29 +101,52 @@ class arroyo5310(object):
                                              timeout =  0,
                                              write_timeout = 0)
                     if self.ser.is_open:
-                        print("\n" + self.port + " has been opened.\n")
                         self.ser.write(b'*IDN? \r\n')
                         sleep(0.1)
-                        print(bytes.decode(self.ser.read(256)))
+                        # Shows the model of Arroyo Instrument
+                        print("Option " + str(option) + ": " + 
+                              bytes.decode(self.ser.read(256)))
+                        options.append(p[0])
+                        option += 1 
+                        self.ser.close()
+                        sleep(0.1)
                     else:
                         print("\nDid not connect to " + self.port + "\n")
-                    return
                 except:
                     print("Failed to connect to " + p[0])
+        # Allows user to choose Arroyo instrument they would like to connect
+        choice = None
+        while choice == None:
+            print("Which option would you like to connect to?\n" + 
+                  "Press 1, 2, 3,... then hit ENTER: ")
+            choice = int(input()) - 1
+        self.port = options[choice]
+        self.ser = serial.Serial(port =     self.port,
+                                 baudrate = 38400,
+                                 parity =   serial.PARITY_NONE,
+                                 stopbits = serial.STOPBITS_ONE,
+                                 bytesize = serial.EIGHTBITS,
+                                 timeout =  0,
+                                 write_timeout = 0)
+        if self.ser.is_open:
+            print("\n" + self.port + " has been opened.\n")
+            self.ser.write(b'*IDN? \r\n')
+            sleep(0.1)
+        else:
+            print("\nDid not connect to " + self.port + "\n")
 
 
     def write_command(self,command):
-        """Takes in string type AT command and returns string type responce"""
-        responce = None
+        """Takes in string type AT command and returns string type response"""
+        response = None
         self.ser.write(str.encode(command) + b'\r\n')
         sleep(0.1)
-        responce = bytes.decode(self.ser.read(256))
-        return(responce)
+        response = bytes.decode(self.ser.read(256))
+        return(response)
 
 
     def beep(self):
-        """ Makes a single beep from the controller 
-            Seems to not work for my unit """
+        """ Makes a single beep from the controller """
         self.write_command("BEEP 1 ")
         return 
 
@@ -100,20 +182,23 @@ class arroyo5310(object):
 
 
     def read_temp(self):
-        """ Queries temperature read by 5310 and returns float in Celsius """
+        """ Queries temperature read by device and returns float in 
+            Celsius """
         temp = float(self.write_command("TEC:T? "))
         return(temp)
 
 
     def read_set_temp(self):
-        """ Queries temperature set point from 5310 and returns a float value 
-            in Celsius """
+        """ Queries temperature set point from device and returns a float 
+            value in Celsius """
         set_point = float(self.write_command("TEC:SET:T? "))
         return(set_point)
 
 
     def set_temp(self, set_point):
         """ Writes new temperature set point for controller """
+        if self.read_mode() != "T":
+            self.set_mode("T")
         self.write_command("TEC:T " + str(set_point) + " ")
         sleep(0.1)
         if set_point == self.read_set_temp():
@@ -125,11 +210,11 @@ class arroyo5310(object):
 
 
     def read_tolerance(self):
-        """ Query the TEC tolerance criteria 
-            returns float type of tolerance in Celsius and time window
-            in seconds 
-            tolerance = 0.01 to 10 C
-            time = 0.1 to 50 seconds """
+        """ Query the source tolerance criteria 
+            Returns float type of tolerance in Celsius and time window in 
+            seconds 
+                tolerance = 0.01 to 10°C
+                time = 0.1 to 50 seconds """
         response = self.write_command("TEC:TOL? ").split(",")
         tolerance = float(response[0])
         time =  float(response[1])
@@ -154,8 +239,8 @@ class arroyo5310(object):
         time = self.write_command("TIME? ")
         print("Unit has been running for " + time)
         return(time)
-    
-    
+
+
     def read_gain(self):
         """ Query the control loop gain or PID control 
             Returns str type value 1, 3, 5, 10, 30, 50, 100 ,300, PID """
@@ -166,8 +251,8 @@ class arroyo5310(object):
         except:
             print("Error reading gain.")
             return
-    
-    
+
+
     def set_gain(self, gain): 
         """ Sets control loop gain of controller or switches to PID mode
             Takes str type value 1, 3, 5, 10, 30, 50, 100 ,300, PID """
@@ -179,8 +264,8 @@ class arroyo5310(object):
         else:
             print("Failed to update gain!")
             return False
-    
-    
+
+
     def read_PID(self):
         """ Reads the PID values of the controller and returns them as 
             float type values in order P I D"""
@@ -188,8 +273,8 @@ class arroyo5310(object):
         response = response.split(",")
         P, I, D = np.array(response, dtype=float)
         return(P, I, D)
-    
-    
+
+
     def set_PID(self, P, I, D):
         """ Writes controller PID values
             takes in P I D in order as float type values """
@@ -223,28 +308,7 @@ class arroyo5310(object):
         else:
             print("Failed to set output!")
             return False
-    
 
-    def read_V_limit(self):
-        """ Queries the voltage limit of the controller and returns
-            it as float type value 
-            Only available for v3.X firmware """
-        limit = float(self.write_command("TEC:LIM:V? "))
-        return(limit)
-
-
-    def set_V_limit(self, vlim):
-        """ Sets the maximum voltage over the peltier modules
-            Only available for v3.X firmware """
-        self.write_command("TEC:LIM:V " + str(vlim) + " ")
-        sleep(0.1)
-        if vlim == self.read_V_limit():
-            print("Updated Voltage limit to: " + str(vlim))
-            return True
-        else:
-            print("Failed to set Voltage limit!")
-            return False
-    
 
     def read_THI_limit(self):
         """ Queries the temperature limit of the controller and returns
@@ -296,7 +360,7 @@ class arroyo5310(object):
         delay = int(response[2])
         return(speed, mode, delay)
 
- 
+
     def set_fan(self, speed, mode, delay = None):
         """ Sets controller fan settings by taking 3 arguments 
             speed takes str value OFF, SLOW, MEDIUM, FAST, or 4.0 to 12.0 in V
@@ -315,8 +379,7 @@ class arroyo5310(object):
         sleep(0.1)
         speed_new, mode_new, delay_new = self.read_fan()
         
-        
-        if float(speed) == float(speed_new):
+        if str(speed) == str(speed_new):
             print("Updated fan speed to: " + str(speed))
         else:
             print("Failed to update fan speed!")
@@ -330,3 +393,179 @@ class arroyo5310(object):
             else:
                 print("Failed to update fan delay!")
         return()
+
+
+    def read_mode(self):
+        """ Queries the operation mode of the controller 
+            Returns 1 of 3 string values:
+                T   Temperature
+                R   Resistance
+                ITE Current """
+        response = self.write_command("TEC:MODE? ").split("\r")[0]
+        return(response)
+
+
+    def set_mode(self, mode):
+        """ Sets the operation mode of the controller 
+            Takes 1 of 3 string values:
+                T   Temperature
+                R   Resistance
+                ITE Current """
+        print("Controller mode is set to: " + self.read_mode())
+        self.write_command("TEC:MODE:" + mode + " ")
+        if mode == self.read_mode():
+            print("Controller mode updated to: " + mode)
+        else:
+            print("Failed to update controller mode!")
+        return()
+
+
+    def read_current(self):
+        """ Queries the measured output value of the current
+            Returns a float type value """
+        response = float(self.write_command("TEC:ITE? "))
+        return(response)
+
+
+    def read_set_current(self):
+        """ Queries the set point value of the current
+            Returns a float type value """
+        response = float(self.write_command("TEC:SET:ITE? "))
+        return(response)
+
+
+    def set_current(self, set_point):
+        """ """
+        if self.read_mode() != "ITE":
+            self.set_mode("ITE")
+        self.write_command("TEC:ITE " + str(set_point) + " ")
+        if float(set_point) == self.read_set_current():
+            print("Updated current set point to: " + str(set_point) + " Amps")
+            return True
+        else:
+            print("Failed to update current set point!")
+            return False
+
+
+    def read_current_limit(self):
+        """ Queries the maximum current output of the controller
+            Returns a float type value """
+        response = float(self.write_command("TEC:LIM:ITE? "))
+        return(response)
+
+
+    def set_current_limit(self, limit):
+        """ Sets the maximum current output of the controller
+            Takes a float type value up to 10 """
+        print("Current limit is set to: " + 
+              str(self.read_current_limit()) + " Amps")
+        self.write_command("TEC:LIM:ITE " + str(limit) + " ")
+        if float(limit) == self.read_current_limit():
+            print("Updated current limit to: " + str(limit) + " Amps")
+            return True
+        else:
+            print("Failed to set current limit!")
+            return False
+
+
+    def vbulk(self):
+        """ Queries the unit's supply voltage """
+        response = float(self.write_command("TEC:VBULK? "))
+        return(response)
+
+
+    def read_voltage(self):
+        """ Queries the measured output value of the voltage
+            Returns a float type value """
+        response = float(self.write_command("TEC:V? "))
+        return(response)
+
+
+    def read_voltage_limit(self):
+        """ Queries the voltage limit of the controller and returns
+            it as float type value 
+            Only available for v3.X firmware """
+        limit = float(self.write_command("TEC:LIM:V? "))
+        return(limit)
+
+
+    def set_voltage_limit(self, vlim):
+        """ Sets the maximum voltage over the peltier modules
+            Only available for v3.X firmware """
+        print("Voltage limit is set to: " + 
+              str(self.read_voltage_limit()) + " Volts")
+        self.write_command("TEC:LIM:V " + str(vlim) + " ")
+        if float(vlim) == self.read_voltage_limit():
+            print("Updated voltage limit to: " + str(vlim) + " Volts")
+            return True
+        else:
+            print("Failed to set voltage limit!")
+            return False
+
+
+    def read_heatcool(self):
+        """ Queries the unit heat/cool mode. Retunrs string type value:
+                BOTH
+                HEAT 
+                COOL """
+        mode = self.write_command("TEC:HEATCOOL? ").split("\r")[0]
+        return(mode)
+
+
+    def set_heatcool(self, mode):
+        """ Sets the heat/cool mode of the unit. Command takes one of three 
+            string type values:
+                BOTH
+                HEAT
+                COOL """
+        print("Heat/cool mode is set to: " + 
+              str(self.read_heatcool()))    
+        self.write_command("TEC:HEATCOOL " + str(mode))
+        if str(mode) == self.read_heatcool():
+            print("Updated heat/cool mode to: " + str(mode))
+            return True
+        else:
+            print("Failed to set heat/cool mode!")
+            return False
+
+
+    def read_autotune(self):
+        """ Queries autotune result since boot-up """
+        response = int(self.write_command("TEC:AUTOTUNE? ").split("\r")[0])
+        if response == 0:
+            print("No AutoTune has been performed since last power-up")
+            return(0)
+        elif response == 1:
+            print("AutoTune in process")
+            return(1)
+        elif response == 2:
+            print("Last AutoTune failed")
+            return(2)
+        elif response == 3:
+            print("Last AutoTune successful")
+            return(3)
+        else:
+            print("COM error in read_autotune function")
+            return(None)
+    
+    
+    def autotune(self, test_point):
+        """ The TEC:AUTOTUNE command is used to start the AutoTune process, 
+        using the temperature parameter as the AutoTune point. The current and
+        temperature limits should be properly setup prior to starting AutoTune.
+        
+        Takes one float type variable as the set point to be tested."""
+        self.read_autotune()
+        self.write_command("TEC:AUTOTUNE " + str(test_point) + " ")
+        sleep(0.5)
+        self.read_autotune()
+        return()
+
+
+    def read_autotunestate(self):
+        """ Work in progress, feel free to write this one if you need it. :) """
+        return()
+
+        
+        
+        
