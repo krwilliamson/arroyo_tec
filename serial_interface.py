@@ -255,7 +255,7 @@ class arroyo(object):
         self.write_command("TEC:GAIN " + str(gain) )
         sleep(0.1)
         if str(gain) == self.read_gain():
-            print("Updated controller gain to: " + gain)
+            print("Updated controller gain to: " + str(gain))
             return True
         else:
             print("Failed to update gain!")
